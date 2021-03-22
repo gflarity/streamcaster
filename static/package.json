@@ -4,6 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "video.js": "^7.11.4"
+    "video.js": "^7.11.4",
+    "videojs-thumbnails": "^1.0.3"
   }
 }

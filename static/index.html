@@ -1,12 +1,31 @@
 <html>
 <script type="text/javascript">window["_gaUserPrefs"] = { ioo: function () { return true; } }</script>
 
+<script src='node_modules/video.js/dist/video.min.js'></script>
+<link href="node_modules/video.js/dist/video-js.min.css" rel="stylesheet">
+
+<script src='node_modules/videojs-thumbnails/dist/browser/videojs-thumbnails.min.js'></script>
+<link href="node_modules/videojs-thumbnails/dist/browser/videojs-thumbnails.min.css" rel="stylesheet">
+
 <head>
     <meta name="viewport" content="width=device-width">
 </head>
 
 <body>
-    <video controls src="http://localhost:3000/video"> </video>
+    <video  id="my-player"
+    class="video-js"
+    controls
+    preload="auto"
+    data-setup='{}'controls>
+        <source src="http://localhost:3000/videos/BigBuckBunny.mp4"></source>
+        <p class="vjs-no-js">
+            To view this video please enable JavaScript, and consider upgrading to a
+            web browser that
+            <a href="https://videojs.com/html5-video-support/" target="_blank">
+            supports HTML5 video
+            </a>
+        </p>
+    </video>
 </body>
 
 </html>
