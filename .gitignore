@@ -1,3 +1,5 @@
 .vscode
 static/*mp4
+static/node_modules
+
 
