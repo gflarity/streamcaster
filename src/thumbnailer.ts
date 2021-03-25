@@ -108,7 +108,7 @@ async function getVideoInfo(entry: WalkEntry) /*: Promise<VideoInfo>*/ {
     return v
 }
 
-async function generateThumbnails(entry: WalkEntry, videoInfo: VideoInfo, tempDir: string): Promise<string> {
+async function generateThumbnails(entry: WalkEntry, tempDir: string): Promise<string> {
 
     //ffmpeg -i BigBuckBunny.mp4 -vf fps=1,scale=320:-1  capture-%10d.pn
     const p = Deno.run({cmd: ["ffmpeg", "-i", entry.path, "-vf", `fps=${SECONDS_PER_THUMBNAIL},scale=${SCALED_WIDTH}:-1`, `${tempDir}/${entry.name}-%10d.png`], stderr: "null", stdout:"null"});
@@ -118,7 +118,17 @@ async function generateThumbnails(entry: WalkEntry, videoInfo: VideoInfo, tempDi
     return `${tempDir}/${entry.name}-*.png`
 }
 
-async function createMontage(entry: WalkEntry, videoInfo: VideoInfo, thumbnailMask: string, tempDir: string): Promise<string> {
+async function generatePoster(entry: WalkEntry, tempDir: string): Promise<string> {
+
+    const posterFile = `${tempDir}/${entry.name}.poster.jpg`
+    const p = Deno.run({cmd: ["ffmpeg", "-i", entry.path, "-ss", "0:30", "-vframes", "1", posterFile], stderr: "null", stdout:"null"});
+    const status = await p.status();
+
+    // this is the mask of thumbnail files
+    return posterFile
+}
+
+async function createMontage(entry: WalkEntry, thumbnailMask: string, tempDir: string): Promise<string> {
     const thumbnailsJPG = `${tempDir}/${entry.name}.thumbnails.jpg`
     let p = Deno.run({cmd: ["magick", "montage", "-geometry", "+0+0", "-tile",  `${TILES_PER_ROW}x`, thumbnailMask, thumbnailsJPG]})
     await p.status()
@@ -126,13 +136,18 @@ async function createMontage(entry: WalkEntry, videoInfo: VideoInfo, thumbnailMa
     return thumbnailsJPG
 }
 
-async function createThumbnailOptionsFile(entry: WalkEntry, videoInfo: VideoInfo, tempDir: string): Promise<string>  {
+async function createThumbnailOptionsFile(entry: WalkEntry, videoInfo: VideoInfo, posterFile: string, thumbnailsFile: string, tempDir: string): Promise<string>  {
 
     const opts = {
-        second: SECONDS_PER_THUMBNAIL,
-        sprite_x_count: TILES_PER_ROW,
-        thumbnail_width: SCALED_WIDTH,
-        thumbnail_height: Math.floor((SCALED_WIDTH/videoInfo.width)*videoInfo.height),
+        source: entry.name,
+        poster: posterFile.replace(tempDir+"/", ""),
+        thumbnails: thumbnailsFile.replace(tempDir+"/", ""),
+        thumbnailsOptions: {
+            second: SECONDS_PER_THUMBNAIL,
+            sprite_x_count: TILES_PER_ROW,
+            thumbnail_width: SCALED_WIDTH,
+            thumbnail_height: Math.floor((SCALED_WIDTH/videoInfo.width)*videoInfo.height),
+        }   
     }
 
     const file = `${tempDir}/${entry.name}.thumbnails.json`
@@ -140,8 +155,12 @@ async function createThumbnailOptionsFile(entry: WalkEntry, videoInfo: VideoInfo
     return file
 }
 
+function rootDirOnly(entry: WalkEntry) {
+    return entry.path.substring(0, entry.path.length - entry.name.length)
+}
+
 async function colocate(entry: WalkEntry, tempDir: string, file: string)  {
-    const rootDir = entry.path.substring(0, entry.path.length - entry.name.length)
+    const rootDir = rootDirOnly(entry)
     const fileName = file.replace(tempDir+"/", "") 
     const newFileName = `${rootDir}${fileName}`
     console.log(`moving  ${file} to ${newFileName}` )
@@ -155,17 +174,21 @@ async function processVideo(entry: WalkEntry) {
 
     // get video info
     const videoInfo = await getVideoInfo(entry)    
-    // run ffmpeg
 
-    const thumbNailMask = await generateThumbnails(entry, videoInfo, tempDir)
+    // the poster for the video
+    const posterFile = await generatePoster(entry, tempDir)
 
-    // run imagemagick montage
-    const thumbnailsFile = await createMontage(entry, videoInfo, thumbNailMask, tempDir)
+    // generate individual thumb nail images
+    const thumbNailMask = await generateThumbnails(entry, tempDir)
 
-    // get the settings needed for the video.js thumbnail plugin
-    const thumbNailOptionsFile = await createThumbnailOptionsFile(entry, videoInfo, tempDir)
+    // run imagemagick montage to combine them into one file
+    const thumbnailsFile = await createMontage(entry, thumbNailMask, tempDir)
+
+    // get the settings needed for the video.js thumbnail plugin and put into a json file
+    const thumbNailOptionsFile = await createThumbnailOptionsFile(entry, videoInfo, posterFile, thumbnailsFile, tempDir)
     
     // move files beside the original video
+    await colocate(entry, tempDir, posterFile)
     await colocate(entry, tempDir, thumbnailsFile)
     await colocate(entry, tempDir, thumbNailOptionsFile)
   
