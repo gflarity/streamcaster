@@ -1,6 +1,6 @@
 <html>
 <script type="text/javascript">window["_gaUserPrefs"] = { ioo: function () { return true; } }</script>
-<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+<script src="node_modules/jquery/dist/jquery.min.js"></script>
 
 <script src='node_modules/video.js/dist/video.min.js'></script>
 <link href="node_modules/video.js/dist/video-js.min.css" rel="stylesheet">
@@ -14,51 +14,54 @@
 <body>
     <video  id="video" class="video-js vjs-big-play-centered vjs-show-big-play-button-on-pause vjs-fill">       
     </video>
-    <script type="text/javascript">
-    var video = videojs('video', {
-        sources: "http://localhost:3000/videos/BigBuckBunny.mp4",
-        controls : true,
-        techOrder : [ 'html5' ],
-        controlslist : 'nodownload',
-        preload : 'auto',
-        children : ["mediaLoader","posterImage","textTrackDisplay","loadingSpinner","bigPlayButton","controlBar","errorDisplay","textTrackSettings"],
-        controlBar : {
-            name : 'ControlBar',
-            children : [
-                {name: "PlayToggle"},
-                {name: "ProgressControl"},
-                {name: "DurationDisplay"},
-                {name: "MuteToggle"},
-                {name: "VolumeControl"},
-                {name: "FullscreenToggle"}
-            ]
-        } 
-    }, function () { 		
-         this.initialPreviewThumbnail({
-             sprite_url:'/videos/BigBuckBunny.mp4.thumbnails.jpg',
-             second:1,
-             sprite_x_count:10,
-             thumbnail_width:180,
-             thumbnail_height:101,
-             preview_window_border_size:2,
-             preview_window_border_color:'green'
-        });
+    <script type="text/javascript">    
+        jQuery.getJSON("/videos/BigBuckBunny.mp4.thumbnails.json").done(thumbnailSettings => {
 
-        this.hotkeys({
-                    keyup : function(event){
-                        if( event.code=="Space" ) {
-                            if( this.paused() ) this.play();
-                            else this.pause();
+
+            var video = videojs('video', {
+                sources: "/videos/BigBuckBunny.mp4",
+                controls : true,
+                techOrder : [ 'html5' ],
+                controlslist : 'nodownload',
+                preload : 'auto',
+                children : ["mediaLoader","posterImage","textTrackDisplay","loadingSpinner","bigPlayButton","controlBar","errorDisplay","textTrackSettings"],
+                controlBar : {
+                    name : 'ControlBar',
+                    children : [
+                        {name: "PlayToggle"},
+                        {name: "ProgressControl"},
+                        {name: "DurationDisplay"},
+                        {name: "MuteToggle"},
+                        {name: "VolumeControl"},
+                        {name: "FullscreenToggle"}
+                    ]
+                } 
+            }, function () {
+                
+                // merge in the settings specific to this thumbnail file
+                this.initialPreviewThumbnail(jQuery.extend({
+                    sprite_url:'/videos/BigBuckBunny.mp4.thumbnails.jpg',             
+                    preview_window_border_size:2,
+                    preview_window_border_color:'green'
+                }, thumbnailSettings));
+
+                this.hotkeys({
+                        keyup : function(event){
+                            if( event.code=="Space" ) {
+                                if( this.paused() ) this.play();
+                                else this.pause();
+                            }
+                        },
+                        keydown : function (event) {
+                            if( event.code=="ArrowRight" )this.currentTime(Math.floor(this.currentTime())+10);
+                            if( event.code=="ArrowLeft" )this.currentTime(Math.floor(this.currentTime())-10);
+                            if( event.code=="ArrowUp" )this.volume(this.volume()+0.1);
+                            if( event.code=="ArrowDown" )this.volume(this.volume()-0.1);
                         }
-                    },
-                    keydown : function (event) {
-                        if( event.code=="ArrowRight" )this.currentTime(Math.floor(this.currentTime())+10);
-                        if( event.code=="ArrowLeft" )this.currentTime(Math.floor(this.currentTime())-10);
-                        if( event.code=="ArrowUp" )this.volume(this.volume()+0.1);
-                        if( event.code=="ArrowDown" )this.volume(this.volume()-0.1);
-                    }
-                });
-                console.log( 'ready to play' );
+                    });
+                    console.log( 'ready to play' );
+        })		
+
 
     });
     </script>

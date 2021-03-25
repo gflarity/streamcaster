@@ -1,8 +1,8 @@
 import { walk, WalkEntry, WalkOptions } from "https://deno.land/std@0.88.0/fs/mod.ts";
 
 // hardcoded here for now
-const FPS = 1;
-const SCALED_WIDTH = 180;
+const SECONDS_PER_THUMBNAIL = 1;
+const SCALED_WIDTH = 160;
 const TILES_PER_ROW = 10;
 
  export interface FFProbeInfo {
@@ -111,7 +111,7 @@ async function getVideoInfo(entry: WalkEntry) /*: Promise<VideoInfo>*/ {
 async function generateThumbnails(entry: WalkEntry, videoInfo: VideoInfo, tempDir: string): Promise<string> {
 
     //ffmpeg -i BigBuckBunny.mp4 -vf fps=1,scale=320:-1  capture-%10d.pn
-    const p = Deno.run({cmd: ["ffmpeg", "-i", entry.path, "-vf", `fps=${FPS},scale=${SCALED_WIDTH}:-1`, `${tempDir}/${entry.name}-%10d.png`], stderr: "null", stdout:"null"});
+    const p = Deno.run({cmd: ["ffmpeg", "-i", entry.path, "-vf", `fps=${SECONDS_PER_THUMBNAIL},scale=${SCALED_WIDTH}:-1`, `${tempDir}/${entry.name}-%10d.png`], stderr: "null", stdout:"null"});
     const status = await p.status();
 
     // this is the mask of thumbnail files
@@ -119,7 +119,6 @@ async function generateThumbnails(entry: WalkEntry, videoInfo: VideoInfo, tempDi
 }
 
 async function createMontage(entry: WalkEntry, videoInfo: VideoInfo, thumbnailMask: string, tempDir: string): Promise<string> {
-
     const thumbnailsJPG = `${tempDir}/${entry.name}.thumbnails.jpg`
     let p = Deno.run({cmd: ["magick", "montage", "-geometry", "+0+0", "-tile",  `${TILES_PER_ROW}x`, thumbnailMask, thumbnailsJPG]})
     await p.status()
@@ -127,15 +126,18 @@ async function createMontage(entry: WalkEntry, videoInfo: VideoInfo, thumbnailMa
     return thumbnailsJPG
 }
 
-async function computeThumbnailOptions(entry: WalkEntry, videoInfo: VideoInfo, tempDir: string): Promise<string>  {
-    const totalThumbnails = Math.floor(videoInfo.duration);
-    const rows = Math.floor(totalThumbnails/TILES_PER_ROW);
-    const scaledWidth = SCALED_WIDTH;
-    const scaledHeight = Math.floor((SCALED_WIDTH/videoInfo.width)*videoInfo.height)
-    console.log(`scaled width: ${scaledWidth} scaled height: ${scaledHeight} rows: ${rows}`)
+async function createThumbnailOptionsFile(entry: WalkEntry, videoInfo: VideoInfo, tempDir: string): Promise<string>  {
 
-    await new Promise((resolve, reject) => { resolve(123)})
-    return ''
+    const opts = {
+        second: SECONDS_PER_THUMBNAIL,
+        sprite_x_count: TILES_PER_ROW,
+        thumbnail_width: SCALED_WIDTH,
+        thumbnail_height: Math.floor((SCALED_WIDTH/videoInfo.width)*videoInfo.height),
+    }
+
+    const file = `${tempDir}/${entry.name}.thumbnails.json`
+    await Deno.writeFile(file, new TextEncoder().encode(JSON.stringify(opts)))
+    return file
 }
 
 async function processVideo(entry: WalkEntry) {
@@ -150,11 +152,10 @@ async function processVideo(entry: WalkEntry) {
     const thumbNailMask = await generateThumbnails(entry, videoInfo, tempDir)
 
     // get the settings needed for the video.js thumbnail plugin
-    const thumbNailOptions = await computeThumbnailOptions(entry, videoInfo, tempDir)
+    const thumbNailOptionsFile = await createThumbnailOptionsFile(entry, videoInfo, tempDir)
 
     // run imagemagick montage
     const thumbnailsFile = await createMontage(entry, videoInfo, thumbNailMask, tempDir)
-    console.log(thumbnailsFile)
     
     // clean up the tempDir
     //await Deno.remove(tempDir, {recursive: true})
