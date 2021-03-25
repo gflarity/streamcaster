@@ -140,6 +140,14 @@ async function createThumbnailOptionsFile(entry: WalkEntry, videoInfo: VideoInfo
     return file
 }
 
+async function colocate(entry: WalkEntry, tempDir: string, file: string)  {
+    const rootDir = entry.path.substring(0, entry.path.length - entry.name.length)
+    const fileName = file.replace(tempDir+"/", "") 
+    const newFileName = `${rootDir}${fileName}`
+    console.log(`moving  ${file} to ${newFileName}` )
+    await Deno.rename(file, newFileName)
+}
+
 async function processVideo(entry: WalkEntry) {
 
     const tempDir = await Deno.makeTempDir()
@@ -151,14 +159,18 @@ async function processVideo(entry: WalkEntry) {
 
     const thumbNailMask = await generateThumbnails(entry, videoInfo, tempDir)
 
-    // get the settings needed for the video.js thumbnail plugin
-    const thumbNailOptionsFile = await createThumbnailOptionsFile(entry, videoInfo, tempDir)
-
     // run imagemagick montage
     const thumbnailsFile = await createMontage(entry, videoInfo, thumbNailMask, tempDir)
+
+    // get the settings needed for the video.js thumbnail plugin
+    const thumbNailOptionsFile = await createThumbnailOptionsFile(entry, videoInfo, tempDir)
     
+    // move files beside the original video
+    await colocate(entry, tempDir, thumbnailsFile)
+    await colocate(entry, tempDir, thumbNailOptionsFile)
+  
     // clean up the tempDir
-    //await Deno.remove(tempDir, {recursive: true})
+    await Deno.remove(tempDir, {recursive: true})
  }
 
 
